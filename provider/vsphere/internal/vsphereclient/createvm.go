@@ -369,6 +369,31 @@ func (c *Client) CreateVirtualMachine(
 			return nil, errors.Trace(err)
 		}
 	}
+	
+	if args.Constraints.HasVirtType() {
+		current_version := 10 // Get a way to dynamically discover current vmx version
+		next_version, err := strconv.Atoi(*args.Constraints.VirtType)
+		if err != nil {
+			// Probably user passed a value different from an integer
+			c.logger.Errorf("Virt-type value passed must be a non-negative integer, received %v instead", *args.Constraints.VirtType)
+			return nil, err
+		}
+		if next_version > current_version {
+			args.UpdateProgress(fmt.Sprintf("upgrading from vmx %i to %i", current_version, next_version))
+			ver := fmt.Sprintf("vmx-%02d", next_version)
+			c.logger.Debugf("VMX version upgrade: current: %i next: %v", current_version, ver)
+			upgrade_task, err := vm.UpgradeVM(ctx, ver)
+			if err != nil {
+				return nil, err
+			}
+			err = upgrade_task.Wait(ctx)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			c.logger.Warningf("Downgrade not allowed. Virt-type version provided is: %i and it is smaller than current: %i", next_version, current_version)
+		}
+	}
 
 	args.UpdateProgress("powering on")
 	task, err := vm.PowerOn(ctx)
