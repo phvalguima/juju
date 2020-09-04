@@ -200,6 +200,7 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+        c.logger.Tracef("ComputeResources: found the files %+v", es)
 
 	var cprs []*mo.ComputeResource
 	for _, e := range es {
@@ -208,6 +209,10 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
 			cprs = append(cprs, &o.ComputeResource)
 		case mo.ComputeResource:
 			cprs = append(cprs, &o)
+                case mo.Folder:
+                        c.logger.Tracef("ComputeResources: Found a cluster folder, appending it: %+v", e)
+                        es = append(es, c.lister(e.Reference()).List(ctx))
+                        c.logger.Tracef("ComputeResources: updated es: %+v", es)
 		}
 	}
 	return cprs, nil
