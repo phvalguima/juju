@@ -165,6 +165,7 @@ func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name strin
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+        logger.Debugf("availZones found: %+v", zones)
 	for _, z := range zones {
 		if z.Name() == name {
 			return z.(*vmwareAvailZone), nil
