@@ -203,18 +203,24 @@ func (c *Client) ComputeResources(ctx context.Context) ([]*mo.ComputeResource, e
         c.logger.Tracef("ComputeResources: found the files %+v", es)
 
 	var cprs []*mo.ComputeResource
-	for _, e := range es {
-		switch o := e.Object.(type) {
-		case mo.ClusterComputeResource:
-			cprs = append(cprs, &o.ComputeResource)
-		case mo.ComputeResource:
-			cprs = append(cprs, &o)
+	i := 0
+	for ok := true; ok; ok = (i < len(es)) {
+                switch o := es[i].Object.(type) {
+                case mo.ClusterComputeResource:
+                        cprs = append(cprs, &o.ComputeResource)
+                case mo.ComputeResource:
+                        cprs = append(cprs, &o)
                 case mo.Folder:
                         c.logger.Tracef("ComputeResources: Found a cluster folder, appending it: %+v", e)
-                        es = append(es, c.lister(e.Reference()).List(ctx))
+			for _, el := range o.ChildEntity {
+				c.logger.Tracef("ComputeResources: adding element %+v", el)
+				es = append( es, c.lister(el.Reference()).List(ctx) )
+			}
                         c.logger.Tracef("ComputeResources: updated es: %+v", es)
-		}
+                }
+		i++;
 	}
+	// If es is empty, cprs also returns an empty list, not nil
 	return cprs, nil
 }
 
