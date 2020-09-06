@@ -63,7 +63,14 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones []
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
 func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([]common.AvailabilityZone, error) {
-	if env.zones == nil {
+        invalidZones := false
+        if env.zones == nil {
+		invalidZones = true
+        // else if to avoid any nil pointer errors
+        } else if len(env.zones) == 0 {
+		invalidZones = true
+        }
+	if invalidZones {
 		computeResources, err := env.client.ComputeResources(env.ctx)
 		if err != nil {
 			HandleCredentialError(err, ctx)
