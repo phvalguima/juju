@@ -195,7 +195,6 @@ func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool,
 }
 
 var unsupportedConstraints = []string{
-	constraints.Tags,
 	// TODO(anastasiamac 2016-03-16) LP#1557874
 	// use virt-type in StartInstances
 	constraints.VirtType,
@@ -524,6 +523,11 @@ func (e *environ) StartInstance(
 		return nil, wrapError(err)
 	}
 
+        // Setting Tags as nil given there is no actual tags to filter images
+        // or instance types in AWS.
+        // Tags is used to add Tags to the VMs.
+	instancespecs_cons := args.Constraints;
+	instancespecs_cons.Tags = nil;
 	spec, err := findInstanceSpec(
 		args.InstanceConfig.Controller != nil,
 		args.ImageMetadata,
@@ -532,7 +536,7 @@ func (e *environ) StartInstance(
 			Region:      e.cloud.Region,
 			Series:      args.InstanceConfig.Series,
 			Arches:      args.Tools.Arches(),
-			Constraints: args.Constraints,
+			Constraints: instancespecs_cons,
 			Storage:     []string{ssdStorage, ebsStorage},
 		},
 	)
@@ -633,6 +637,22 @@ func (e *environ) StartInstance(
 		names.NewMachineTag(args.InstanceConfig.MachineId), e.Config().Name(),
 	)
 	args.InstanceConfig.Tags[tagName] = instanceName
+	// User-defined "Name" tag will redefine the instanceName as well and allow users
+	// to customize vm and hostnames.
+	if args.Constraints.Tags != nil {
+		for i := range *args.Constraints.Tags {
+			var t = strings.Split( (*args.Constraints.Tags)[i], "=");
+			var key = t[0];
+	                var value = "";
+			if len(t) > 1 {
+				value = t[1];
+			} else {
+				// There is no value set for this tag, leave it
+				continue;
+			}
+			args.InstanceConfig.Tags[key] = value;
+		}
+	}
 	if err := tagResources(e.ec2, ctx, args.InstanceConfig.Tags, string(inst.Id())); err != nil {
 		return nil, annotateWrapError(err, "tagging instance")
 	}
