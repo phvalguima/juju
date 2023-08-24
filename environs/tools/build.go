@@ -301,15 +301,13 @@ func buildJujus(dir string) error {
 }
 
 func packageLocalTools(toolsDir string, buildAgent bool) error {
-	if !buildAgent {
-		if err := copyExistingJujus(toolsDir, true); err != nil {
-			return errors.New("no prepackaged agent available and no jujud binary can be found")
-		}
+	if err := copyExistingJujus(toolsDir, true); err != nil {
+
+	        logger.Infof("Building agent binary to upload (%s)", jujuversion.Current.String())
+	        if err := buildJujus(toolsDir); err != nil {
+	                return errors.Annotate(err, "cannot build jujud agent binary from source")
+	        }
 		return nil
-	}
-	logger.Infof("Building agent binary to upload (%s)", jujuversion.Current.String())
-	if err := buildJujus(toolsDir); err != nil {
-		return errors.Annotate(err, "cannot build jujud agent binary from source")
 	}
 	return nil
 }
