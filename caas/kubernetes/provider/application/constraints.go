@@ -293,7 +293,7 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		topologySpreadTags[topologySpreadKey+topologyKeyTag] = val
 
 		key = strings.TrimPrefix(key, topologySpreadKey)
-		if key != topologySpreadMaxSkew && key != topologySpreadNodeTaintPolicy && key != topologySpreadMatchLabels && key != topologySpreadMinDomains {
+		if key != topologyKeyTag && key != topologySpreadMaxSkew && key != topologySpreadNodeTaintPolicy && key != topologySpreadMatchLabels && key != topologySpreadMinDomains {
 			return errors.Errorf("invalid topology spread constraint key %q", key)
 		}
 		topologySpreadTags[key] = value
@@ -366,22 +366,27 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		if topologyKey != "" {
 			topologyTerms.TopologyKey = topologyKey
 		}
+		topologyTerms.WhenUnsatisfiable = core.DoNotSchedule
 		topologyTerms.MaxSkew = int32(maxSkew)
 		minimumDomains := int32(minDomains)
 		topologyTerms.MinDomains = &minimumDomains
+
+		honorPolicy := core.NodeInclusionPolicy("Honor")
 		if nodeTaintsPolicy != nil {
 			topologyTerms.NodeTaintsPolicy = nodeTaintsPolicy
 		} else {
-			honorPolicy := core.NodeInclusionPolicy("Honor")
 			topologyTerms.NodeTaintsPolicy = &honorPolicy
 		}
+		topologyTerms.NodeAffinityPolicy = &honorPolicy
 		topologyTerms.LabelSelector = &labelSelector
-
 	}
 	var topologyTerm core.TopologySpreadConstraint
 	updateTopologyTerm(&topologyTerm, topologySpreadTags)
 	if len(topologyTerm.LabelSelector.MatchExpressions) > 0 {
-		pod.TopologySpreadConstraints = []core.TopologySpreadConstraint{topologyTerm}
+		if pod.TopologySpreadConstraints == nil {
+			pod.TopologySpreadConstraints = make([]core.TopologySpreadConstraint, 0)
+		}
+		pod.TopologySpreadConstraints = append(pod.TopologySpreadConstraints, topologyTerm)
 	}
 	return nil
 }

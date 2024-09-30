@@ -61,11 +61,26 @@ func (s *applyConstraintsSuite) TestTopologySpreadConstraintsConfig(c *gc.C) {
 		return errors.New("unexpected")
 	}
 	pod := &corev1.PodSpec{}
-	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=topology-spread..topology-key=foo"), configureConstraint)
+	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=topology-spread.topology-key=foo"), configureConstraint)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.TopologySpreadConstraint{
-		LabelSelector: &metav1.LabelSelector{},
-		TopologyKey:   "foo",
+	var minDomains int32 = 3
+	var honorPolicy corev1.NodeInclusionPolicy = corev1.NodeInclusionPolicy("Honor")
+	c.Assert(pod.TopologySpreadConstraints, jc.DeepEquals, []corev1.TopologySpreadConstraint{
+		corev1.TopologySpreadConstraint{
+			TopologyKey:        "foo",
+			WhenUnsatisfiable:  corev1.DoNotSchedule,
+			NodeTaintsPolicy:   &honorPolicy,
+			NodeAffinityPolicy: &honorPolicy,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: nil,
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      "topology-spread.topology-key",
+					Operator: metav1.LabelSelectorOpIn,
+					Values:   []string{"foo"},
+				}},
+			},
+			MinDomains: &minDomains,
+		},
 	})
 }
 
