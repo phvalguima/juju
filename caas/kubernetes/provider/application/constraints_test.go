@@ -56,6 +56,19 @@ func (s *applyConstraintsSuite) TestArch(c *gc.C) {
 	c.Assert(pod.NodeSelector, jc.DeepEquals, map[string]string{"kubernetes.io/arch": "arm64"})
 }
 
+func (s *applyConstraintsSuite) TestTopologySpreadConstraintsConfig(c *gc.C) {
+	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
+		return errors.New("unexpected")
+	}
+	pod := &corev1.PodSpec{}
+	err := application.ApplyConstraints(pod, "foo", constraints.MustParse("tags=topology-spread..topology-key=foo"), configureConstraint)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(pod.Affinity.PodAffinity, jc.DeepEquals, &corev1.TopologySpreadConstraint{
+		LabelSelector: &metav1.LabelSelector{},
+		TopologyKey:   "foo",
+	})
+}
+
 func (s *applyConstraintsSuite) TestPodAffinityJustTopologyKey(c *gc.C) {
 	configureConstraint := func(pod *corev1.PodSpec, resourceName corev1.ResourceName, value string) (err error) {
 		return errors.New("unexpected")
