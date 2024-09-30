@@ -115,10 +115,11 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 }
 
 const (
-	podPrefix      = "pod."
-	antiPodPrefix  = "anti-pod."
-	topologyKeyTag = "topology-key"
-	nodePrefix     = "node."
+	podPrefix         = "pod."
+	antiPodPrefix     = "anti-pod."
+	topologyKeyTag    = "topology-key"
+	nodePrefix        = "node."
+	topologySpreadKey = "topology-spread."
 )
 
 func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) error {
@@ -131,7 +132,7 @@ func processNodeAffinity(pod *core.PodSpec, affinityLabels map[string]string) er
 			}
 			key = key[1:]
 		}
-		if strings.HasPrefix(key, podPrefix) || strings.HasPrefix(key, antiPodPrefix) {
+		if strings.HasPrefix(key, podPrefix) || strings.HasPrefix(key, antiPodPrefix) || strings.HasPrefix(key, topologySpreadKey) {
 			continue
 		}
 		key = strings.TrimPrefix(keyVal, nodePrefix)
@@ -272,7 +273,6 @@ func processPodAffinity(pod *core.PodSpec, affinityLabels map[string]string) err
 }
 
 const (
-	topologySpreadKey             = "topology-spread."
 	topologySpreadMaxSkew         = "maxSkew"
 	topologySpreadMinDomains      = "minDomains"
 	topologySpreadNodeTaintPolicy = "nodeTaintsPolicy"
@@ -296,6 +296,15 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		if key != topologyKeyTag && key != topologySpreadMaxSkew && key != topologySpreadNodeTaintPolicy && key != topologySpreadMatchLabels && key != topologySpreadMinDomains {
 			return errors.Errorf("invalid topology spread constraint key %q", key)
 		}
+		if key == topologySpreadMaxSkew {
+			val, err := strconv.Atoi(value)
+			if err != nil {
+				return errors.Errorf("invalid value %q for topology spread max skew", value)
+			}
+			if val < 1 {
+				return errors.Errorf("invalid value, maxSkew must be greater or equal to 1")
+			}
+		}
 		topologySpreadTags[key] = value
 	}
 	if len(topologySpreadTags) == 0 {
@@ -314,7 +323,7 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		var (
 			labelSelector    v1.LabelSelector
 			topologyKey      string = "kubernetes.io/zone"
-			maxSkew          int    = 0
+			maxSkew          int    = 1
 			minDomains       int    = 3
 			nodeTaintsPolicy *core.NodeInclusionPolicy
 		)
