@@ -85,7 +85,7 @@ func ApplyConstraints(pod *core.PodSpec, appName string, cons constraints.Value,
 		if err := processPodAffinity(pod, affinityLabels); err != nil {
 			return errors.Annotatef(err, "configuring pod affinity for %s", appName)
 		}
-		if err := processTopologySpreadConstraints(pod, affinityLabels); err != nil {
+		if err := processTopologySpreadConstraints(pod, affinityLabels, appName); err != nil {
 			return errors.Annotatef(err, "configuring topology spread constraints for %s", appName)
 		}
 
@@ -279,7 +279,7 @@ const (
 	topologySpreadMatchLabels     = "matchLabelKeys"
 )
 
-func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[string]string) error {
+func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[string]string, appName string) error {
 	topologySpreadTags := make(map[string]string)
 
 	for key, value := range affinityLabels {
@@ -290,7 +290,7 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		if !present {
 			return errors.Errorf("topology-key not set for topology spread constraints: %v", affinityLabels)
 		}
-		topologySpreadTags[topologySpreadKey+topologyKeyTag] = val
+		topologySpreadTags[topologyKeyTag] = val
 
 		key = strings.TrimPrefix(key, topologySpreadKey)
 		if key != topologyKeyTag && key != topologySpreadMaxSkew && key != topologySpreadNodeTaintPolicy && key != topologySpreadMatchLabels && key != topologySpreadMinDomains {
@@ -301,6 +301,8 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 	if len(topologySpreadTags) == 0 {
 		return nil
 	}
+
+	var appNameLabel string = "app.kubernetes.io/name"
 
 	updateTopologyTerm := func(topologyTerms *core.TopologySpreadConstraint, tags map[string]string) {
 		// Sort for stable ordering.
@@ -348,6 +350,11 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 				continue
 			}
 
+			if tag == appNameLabel {
+				// Nothing to do, we will add this tag anyways
+				continue
+			}
+
 			allValues := strings.Split(tags[tag], "|")
 			for i, v := range allValues {
 				allValues[i] = strings.Trim(v, " ")
@@ -380,14 +387,20 @@ func processTopologySpreadConstraints(pod *core.PodSpec, affinityLabels map[stri
 		topologyTerms.NodeAffinityPolicy = &honorPolicy
 		topologyTerms.LabelSelector = &labelSelector
 	}
+
 	var topologyTerm core.TopologySpreadConstraint
 	updateTopologyTerm(&topologyTerm, topologySpreadTags)
-	if len(topologyTerm.LabelSelector.MatchExpressions) > 0 {
-		if pod.TopologySpreadConstraints == nil {
-			pod.TopologySpreadConstraints = make([]core.TopologySpreadConstraint, 0)
-		}
-		pod.TopologySpreadConstraints = append(pod.TopologySpreadConstraints, topologyTerm)
+
+	topologyTerm.LabelSelector.MatchExpressions = append(topologyTerm.LabelSelector.MatchExpressions, v1.LabelSelectorRequirement{
+		Key:      appNameLabel,
+		Operator: v1.LabelSelectorOpIn,
+		Values:   []string{appName},
+	})
+
+	if pod.TopologySpreadConstraints == nil {
+		pod.TopologySpreadConstraints = make([]core.TopologySpreadConstraint, 0)
 	}
+	pod.TopologySpreadConstraints = append(pod.TopologySpreadConstraints, topologyTerm)
 	return nil
 }
 

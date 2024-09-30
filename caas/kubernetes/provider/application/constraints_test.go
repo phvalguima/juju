@@ -74,7 +74,7 @@ func (s *applyConstraintsSuite) TestTopologySpreadConstraintsConfig(c *gc.C) {
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: nil,
 				MatchExpressions: []metav1.LabelSelectorRequirement{{
-					Key:      "topology-spread.topology-key",
+					Key:      "app.kubernetes.io/name",
 					Operator: metav1.LabelSelectorOpIn,
 					Values:   []string{"foo"},
 				}},
