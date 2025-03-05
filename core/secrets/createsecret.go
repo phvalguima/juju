@@ -23,8 +23,8 @@ type SecretData map[string]string
 
 const (
 	fileSuffix          = "#file"
-	maxValueSizeBytes   = 8 * 1024
-	maxContentSizeBytes = 64 * 1024
+	maxValueSizeBytes   = 1024 * 1024
+	maxContentSizeBytes = 1024 * 1024
 )
 
 // CreateSecretData creates a secret data bag from a list of arguments.
